@@ -1,39 +1,46 @@
-
-import express from 'express';
+import express from "express";
 import cookieParser from "cookie-parser";
-import cors from 'cors';
-import authRoutes from "./routes/authRoutes.js"
+import cors from "cors";
+
+import authRoutes from "./routes/authRoutes.js";
 import facebookRoutes from "./routes/facebookRoutes.js";
-import postRoutes from "./routes/postRoutes.js";
 import automationRoutes from "./routes/automationRoutes.js";
 import llmRoutes from "./routes/llmRoutes.js";
-import automationStatusRoutes
-    from "./routes/automationStatusRoutes.js";
-    import dashboardRoutes from "./routes/dashboardRoutes.js";
+import automationStatusRoutes from "./routes/automationStatusRoutes.js";
+import dashboardRoutes from "./routes/dashboardRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js";
 import imageRoutes from "./routes/imageRoutes.js";
-import cardTestRoutes
-    from "./routes/cardTestRoutes.js";
-import contentGenerationTestRoutes
-    from "./routes/contentGenerationTestRoutes.js";
+import cardTestRoutes from "./routes/cardTestRoutes.js";
+import contentGenerationTestRoutes from "./routes/contentGenerationTestRoutes.js";
 
 // Create an instance of the Express application
 const app = express();
 
 // Middlewares
-app.use(cors({
-    origin:"http://localhost:5173",
-    credentials:true
-}))
-app.use(express.json())
-app.use(cookieParser())
+app.use(
+    cors({
+        origin: process.env.FRONTEND_URL,
+        credentials: true,
+    })
+);
 
-//mount routes
+app.use(express.json());
+app.use(cookieParser());
 
-app.use("/api/auth", authRoutes)
-app.use("/api/facebook", facebookRoutes)
+// Public health check
+app.get("/api/health", (req, res) => {
+    res.status(200).json({
+        status: "OK",
+        message: "Server is running!",
+    });
+});
+
+// Mount routes
+app.use("/api/auth", authRoutes);
+
+app.use("/api/facebook", facebookRoutes);
+
 // app.use("/api/posts", postRoutes);
-
 
 app.use("/api/llm", llmRoutes);
 
@@ -73,5 +80,3 @@ app.use(
 );
 
 export default app;
-
-
