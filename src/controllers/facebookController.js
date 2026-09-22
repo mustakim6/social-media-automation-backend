@@ -123,7 +123,8 @@ const facebookCallback = async (req, res) => {
         });
 
         return res.redirect(
-    `http://localhost:5173/pages?facebook=connected&sessionId=${oauthSession._id}`
+    `${process.env.FRONTEND_URL}/pages?facebook=connected&sessionId=${oauthSession._id}`
+
 );
 
     } catch (error) {
