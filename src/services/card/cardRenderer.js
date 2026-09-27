@@ -1,7 +1,16 @@
+
 import sharp from "sharp";
 
 const WIDTH = 1080;
 const HEIGHT = 1080;
+
+
+// ================================================
+// FONT
+// ================================================
+
+const FONT_FAMILY =
+    "Noto Sans Bengali, sans-serif";
 
 
 // ================================================
@@ -293,9 +302,9 @@ const createCardSvg = ({
                             x="540"
                             y="${y}"
                             text-anchor="middle"
-                            font-family="Arial, sans-serif"
+                            font-family="${FONT_FAMILY}"
                             font-size="${fontSize}px"
-                            font-weight="700"
+                            font-weight="400"
                             fill="#FFFFFF"
                         >
                             ${escapeXml(
@@ -495,9 +504,9 @@ const createCardSvg = ({
                 x="540"
                 y="920"
                 text-anchor="middle"
-                font-family="Arial, sans-serif"
+                font-family="${FONT_FAMILY}"
                 font-size="30px"
-                font-weight="600"
+                font-weight="400"
                 letter-spacing="0.5px"
                 fill="#FFFFFF"
                 opacity="0.85"
@@ -599,3 +608,4 @@ const renderCard = async ({
 // ================================================
 
 export default renderCard;
+
