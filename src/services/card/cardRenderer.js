@@ -1,4 +1,3 @@
-
 import sharp from "sharp";
 
 const WIDTH = 1080;
@@ -9,8 +8,11 @@ const HEIGHT = 1080;
 // FONT
 // ================================================
 
-const FONT_FAMILY =
+const FONT_REGULAR =
     "Noto Sans Bengali, sans-serif";
+
+const FONT_BOLD =
+    "Noto Sans Bengali Bold, sans-serif";
 
 
 // ================================================
@@ -190,14 +192,6 @@ const wrapQuote = (
 // ================================================
 // PAGE NAME WRAPPING
 // ================================================
-//
-// Page names can be long.
-// We keep them within a maximum
-// of 2 visual lines.
-//
-// Long single words are also
-// split so they cannot overflow.
-// ================================================
 
 const breakLongWord = (
     word,
@@ -311,9 +305,7 @@ const wrapPageName = (
 
 
     // --------------------------------
-    // If more than 2 lines,
-    // merge remaining content
-    // into the second line.
+    // Keep maximum 2 lines
     // --------------------------------
 
     const firstLine =
@@ -355,7 +347,6 @@ const getPageNameFontSize = (
         pageName.length;
 
 
-    // Short name
     if (
         length <= 20 &&
         lines.length === 1
@@ -364,7 +355,6 @@ const getPageNameFontSize = (
     }
 
 
-    // Medium name
     if (
         length <= 28 &&
         lines.length === 1
@@ -373,7 +363,6 @@ const getPageNameFontSize = (
     }
 
 
-    // Two-line medium name
     if (
         length <= 36
     ) {
@@ -381,7 +370,6 @@ const getPageNameFontSize = (
     }
 
 
-    // Long name
     if (
         length <= 48
     ) {
@@ -389,7 +377,6 @@ const getPageNameFontSize = (
     }
 
 
-    // Very long name
     return 22;
 };
 
@@ -499,7 +486,8 @@ const createCardSvg = ({
     // QUOTE TEXT
     // ============================================
     //
-    // Noto Sans Bengali Bold
+    // Explicitly use the separate Bold family.
+    // No font-weight matching is required.
     // ============================================
 
     const textElements =
@@ -521,9 +509,9 @@ const createCardSvg = ({
                             x="540"
                             y="${y}"
                             text-anchor="middle"
-                            font-family="${FONT_FAMILY}"
+                            font-family="${FONT_BOLD}"
                             font-size="${fontSize}px"
-                            font-weight="700"
+                            font-weight="400"
                             fill="#FFFFFF"
                         >
                             ${escapeXml(
@@ -536,9 +524,9 @@ const createCardSvg = ({
             .join("");
 
 
-// ============================================
-// QUOTATION MARK
-// ============================================
+    // ============================================
+    // QUOTATION MARK
+    // ============================================
 
     const quotationMark = `
         <text
@@ -558,9 +546,9 @@ const createCardSvg = ({
     `;
 
 
-// ============================================
-// PAGE NAME
-// ============================================
+    // ============================================
+    // PAGE NAME
+    // ============================================
 
     const pageNameLines =
         wrapPageName(
@@ -617,7 +605,7 @@ const createCardSvg = ({
                             x="540"
                             y="${y}"
                             text-anchor="middle"
-                            font-family="${FONT_FAMILY}"
+                            font-family="${FONT_REGULAR}"
                             font-size="${pageNameFontSize}px"
                             font-weight="400"
                             letter-spacing="0.5px"
@@ -634,9 +622,9 @@ const createCardSvg = ({
             .join("");
 
 
-// ============================================
-// SVG
-// ============================================
+    // ============================================
+    // SVG
+    // ============================================
 
     return `
         <svg
@@ -901,4 +889,3 @@ const renderCard = async ({
 // ================================================
 
 export default renderCard;
-
