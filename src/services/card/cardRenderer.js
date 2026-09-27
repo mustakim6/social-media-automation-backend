@@ -7,8 +7,18 @@ const HEIGHT = 1080;
 // ================================================
 // FONT
 // ================================================
+//
+// Primary font:
+// - Noto Sans Bengali → Bangla
+//
+// Fallback:
+// - Liberation Sans → English / Latin characters
+// - sans-serif → final system fallback
+// ================================================
 
-const FONT = "Noto Sans Bengali";
+const FONT = "Noto Sans Bengali, Liberation Sans, sans-serif";
+
+const QUOTE_MARK_FONT = "Liberation Sans, sans-serif";
 
 
 // ================================================
@@ -436,7 +446,7 @@ const createCardSvg = ({
             x="540"
             y="330"
             text-anchor="middle"
-            font-family="Georgia, serif"
+            font-family="${QUOTE_MARK_FONT}"
             font-size="180px"
             font-weight="700"
             fill="${escapeXml(
