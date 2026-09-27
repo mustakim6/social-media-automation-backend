@@ -188,6 +188,213 @@ const wrapQuote = (
 
 
 // ================================================
+// PAGE NAME WRAPPING
+// ================================================
+//
+// Page names can be long.
+// We keep them within a maximum
+// of 2 visual lines.
+//
+// Long single words are also
+// split so they cannot overflow.
+// ================================================
+
+const breakLongWord = (
+    word,
+    maxChars
+) => {
+
+    if (
+        word.length <= maxChars
+    ) {
+        return [word];
+    }
+
+    const chunks = [];
+
+    for (
+        let i = 0;
+        i < word.length;
+        i += maxChars
+    ) {
+        chunks.push(
+            word.slice(
+                i,
+                i + maxChars
+            )
+        );
+    }
+
+    return chunks;
+};
+
+
+const wrapPageName = (
+    text,
+    maxCharsPerLine = 28
+) => {
+
+    const words =
+        text
+            .split(/\s+/)
+            .filter(Boolean);
+
+    const processedWords = [];
+
+    for (
+        const word of words
+    ) {
+
+        const chunks =
+            breakLongWord(
+                word,
+                maxCharsPerLine
+            );
+
+        processedWords.push(
+            ...chunks
+        );
+    }
+
+
+    const lines = [];
+
+    let currentLine = "";
+
+
+    for (
+        const word of processedWords
+    ) {
+
+        const testLine =
+            currentLine
+                ? `${currentLine} ${word}`
+                : word;
+
+
+        if (
+            testLine.length >
+                maxCharsPerLine &&
+            currentLine
+        ) {
+
+            lines.push(
+                currentLine
+            );
+
+            currentLine = word;
+
+        } else {
+
+            currentLine =
+                testLine;
+        }
+    }
+
+
+    if (currentLine) {
+        lines.push(
+            currentLine
+        );
+    }
+
+
+    // --------------------------------
+    // Maximum 2 visual lines
+    // --------------------------------
+
+    if (
+        lines.length <= 2
+    ) {
+        return lines;
+    }
+
+
+    // --------------------------------
+    // If more than 2 lines,
+    // merge remaining content
+    // into the second line.
+    // --------------------------------
+
+    const firstLine =
+        lines[0];
+
+    const remainingText =
+        lines
+            .slice(1)
+            .join(" ");
+
+
+    const secondLine =
+        remainingText.length >
+            maxCharsPerLine
+            ? remainingText.slice(
+                0,
+                maxCharsPerLine
+            )
+            : remainingText;
+
+
+    return [
+        firstLine,
+        secondLine,
+    ];
+};
+
+
+// ================================================
+// PAGE NAME FONT SIZE
+// ================================================
+
+const getPageNameFontSize = (
+    pageName,
+    lines
+) => {
+
+    const length =
+        pageName.length;
+
+
+    // Short name
+    if (
+        length <= 20 &&
+        lines.length === 1
+    ) {
+        return 30;
+    }
+
+
+    // Medium name
+    if (
+        length <= 28 &&
+        lines.length === 1
+    ) {
+        return 28;
+    }
+
+
+    // Two-line medium name
+    if (
+        length <= 36
+    ) {
+        return 26;
+    }
+
+
+    // Long name
+    if (
+        length <= 48
+    ) {
+        return 24;
+    }
+
+
+    // Very long name
+    return 22;
+};
+
+
+// ================================================
 // GET THEME
 // ================================================
 
@@ -216,6 +423,10 @@ const createCardSvg = ({
         getTheme(theme);
 
 
+    // ============================================
+    // QUOTE
+    // ============================================
+
     const quote =
         normalizeQuote(text);
 
@@ -235,11 +446,12 @@ const createCardSvg = ({
         lines.slice(0, 4);
 
 
-    // --------------------------------
-    // Dynamic typography
-    // --------------------------------
+    // ============================================
+    // QUOTE TYPOGRAPHY
+    // ============================================
 
     let fontSize = 58;
+
 
     if (
         visibleLines.length === 4
@@ -247,17 +459,20 @@ const createCardSvg = ({
         fontSize = 50;
     }
 
+
     if (
         visibleLines.length === 3
     ) {
         fontSize = 56;
     }
 
+
     if (
         visibleLines.length === 2
     ) {
         fontSize = 62;
     }
+
 
     if (
         visibleLines.length === 1
@@ -280,9 +495,12 @@ const createCardSvg = ({
         totalTextHeight / 2;
 
 
-    // --------------------------------
-    // Quote text
-    // --------------------------------
+    // ============================================
+    // QUOTE TEXT
+    // ============================================
+    //
+    // Noto Sans Bengali Bold
+    // ============================================
 
     const textElements =
         visibleLines
@@ -297,6 +515,7 @@ const createCardSvg = ({
                         index *
                             lineHeight;
 
+
                     return `
                         <text
                             x="540"
@@ -304,7 +523,7 @@ const createCardSvg = ({
                             text-anchor="middle"
                             font-family="${FONT_FAMILY}"
                             font-size="${fontSize}px"
-                            font-weight="400"
+                            font-weight="700"
                             fill="#FFFFFF"
                         >
                             ${escapeXml(
@@ -317,9 +536,9 @@ const createCardSvg = ({
             .join("");
 
 
-    // --------------------------------
-    // Decorative quotation mark
-    // --------------------------------
+// ============================================
+// QUOTATION MARK
+// ============================================
 
     const quotationMark = `
         <text
@@ -339,19 +558,85 @@ const createCardSvg = ({
     `;
 
 
-    // --------------------------------
-    // Page name
-    // --------------------------------
+// ============================================
+// PAGE NAME
+// ============================================
 
-    const safePageName =
-        escapeXml(
-            pageName
+    const pageNameLines =
+        wrapPageName(
+            pageName,
+            28
         );
 
 
+    const pageNameFontSize =
+        getPageNameFontSize(
+            pageName,
+            pageNameLines
+        );
+
+
+    const pageNameLineHeight =
+        pageNameFontSize * 1.25;
+
+
     // --------------------------------
-    // SVG
+    // Position page name dynamically
     // --------------------------------
+
+    let pageNameStartY = 920;
+
+
+    if (
+        pageNameLines.length === 2
+    ) {
+        pageNameStartY = 900;
+    }
+
+
+    // --------------------------------
+    // Render page name lines
+    // --------------------------------
+
+    const pageNameElements =
+        pageNameLines
+            .map(
+                (
+                    line,
+                    index
+                ) => {
+
+                    const y =
+                        pageNameStartY +
+                        index *
+                            pageNameLineHeight;
+
+
+                    return `
+                        <text
+                            x="540"
+                            y="${y}"
+                            text-anchor="middle"
+                            font-family="${FONT_FAMILY}"
+                            font-size="${pageNameFontSize}px"
+                            font-weight="400"
+                            letter-spacing="0.5px"
+                            fill="#FFFFFF"
+                            opacity="0.85"
+                        >
+                            ${escapeXml(
+                                line
+                            )}
+                        </text>
+                    `;
+                }
+            )
+            .join("");
+
+
+// ============================================
+// SVG
+// ============================================
 
     return `
         <svg
@@ -416,7 +701,9 @@ const createCardSvg = ({
             </defs>
 
 
-            <!-- Background -->
+            <!-- ================================= -->
+            <!-- BACKGROUND -->
+            <!-- ================================= -->
 
             <rect
                 width="${WIDTH}"
@@ -425,7 +712,9 @@ const createCardSvg = ({
             />
 
 
-            <!-- Soft center glow -->
+            <!-- ================================= -->
+            <!-- SOFT CENTER GLOW -->
+            <!-- ================================= -->
 
             <rect
                 width="${WIDTH}"
@@ -434,7 +723,9 @@ const createCardSvg = ({
             />
 
 
-            <!-- Decorative circle -->
+            <!-- ================================= -->
+            <!-- TOP DECORATIVE CIRCLE -->
+            <!-- ================================= -->
 
             <circle
                 cx="920"
@@ -447,7 +738,9 @@ const createCardSvg = ({
             />
 
 
-            <!-- Decorative circle -->
+            <!-- ================================= -->
+            <!-- BOTTOM DECORATIVE CIRCLE -->
+            <!-- ================================= -->
 
             <circle
                 cx="100"
@@ -460,7 +753,9 @@ const createCardSvg = ({
             />
 
 
-            <!-- Top accent line -->
+            <!-- ================================= -->
+            <!-- TOP ACCENT LINE -->
+            <!-- ================================= -->
 
             <rect
                 x="440"
@@ -475,17 +770,23 @@ const createCardSvg = ({
             />
 
 
-            <!-- Quotation mark -->
+            <!-- ================================= -->
+            <!-- QUOTATION MARK -->
+            <!-- ================================= -->
 
             ${quotationMark}
 
 
-            <!-- Quote -->
+            <!-- ================================= -->
+            <!-- QUOTE -->
+            <!-- ================================= -->
 
             ${textElements}
 
 
-            <!-- Bottom divider -->
+            <!-- ================================= -->
+            <!-- BOTTOM DIVIDER -->
+            <!-- ================================= -->
 
             <rect
                 x="470"
@@ -498,24 +799,16 @@ const createCardSvg = ({
             />
 
 
-            <!-- Page name -->
+            <!-- ================================= -->
+            <!-- PAGE NAME -->
+            <!-- ================================= -->
 
-            <text
-                x="540"
-                y="920"
-                text-anchor="middle"
-                font-family="${FONT_FAMILY}"
-                font-size="30px"
-                font-weight="400"
-                letter-spacing="0.5px"
-                fill="#FFFFFF"
-                opacity="0.85"
-            >
-                ${safePageName}
-            </text>
+            ${pageNameElements}
 
 
-            <!-- Small bottom accent -->
+            <!-- ================================= -->
+            <!-- SMALL BOTTOM ACCENT -->
+            <!-- ================================= -->
 
             <circle
                 cx="540"
@@ -541,9 +834,9 @@ const renderCard = async ({
     theme = "midnight",
 }) => {
 
-    // --------------------------------
-    // Validate text
-    // --------------------------------
+    // ============================================
+    // VALIDATE TEXT
+    // ============================================
 
     if (
         !text ||
@@ -556,9 +849,9 @@ const renderCard = async ({
     }
 
 
-    // --------------------------------
-    // Validate page name
-    // --------------------------------
+    // ============================================
+    // VALIDATE PAGE NAME
+    // ============================================
 
     if (
         !pageName ||
@@ -571,9 +864,9 @@ const renderCard = async ({
     }
 
 
-    // --------------------------------
-    // Create SVG
-    // --------------------------------
+    // ============================================
+    // CREATE SVG
+    // ============================================
 
     const svg =
         createCardSvg({
@@ -587,9 +880,9 @@ const renderCard = async ({
         });
 
 
-    // --------------------------------
-    // Convert SVG → PNG
-    // --------------------------------
+    // ============================================
+    // SVG → PNG
+    // ============================================
 
     const imageBuffer =
         await sharp(
