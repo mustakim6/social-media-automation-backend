@@ -8,11 +8,7 @@ const HEIGHT = 1080;
 // FONT
 // ================================================
 
-const FONT_REGULAR =
-    "Noto Sans Bengali, sans-serif";
-
-const FONT_BOLD =
-    "Noto Sans Bengali Bold, sans-serif";
+const FONT = "Noto Sans Bengali";
 
 
 // ================================================
@@ -115,20 +111,15 @@ const wrapSingleLine = (
     let currentLine = "";
 
     for (const word of words) {
-
-        const testLine =
-            currentLine
-                ? `${currentLine} ${word}`
-                : word;
+        const testLine = currentLine
+            ? `${currentLine} ${word}`
+            : word;
 
         if (
-            testLine.length >
-                maxCharsPerLine &&
+            testLine.length > maxCharsPerLine &&
             currentLine
         ) {
-            lines.push(
-                currentLine
-            );
+            lines.push(currentLine);
 
             currentLine = word;
         } else {
@@ -137,9 +128,7 @@ const wrapSingleLine = (
     }
 
     if (currentLine) {
-        lines.push(
-            currentLine
-        );
+        lines.push(currentLine);
     }
 
     return lines;
@@ -158,31 +147,20 @@ const wrapQuote = (
     text,
     maxCharsPerLine = 30
 ) => {
-
-    const originalLines =
-        text
-            .split("\n")
-            .map(
-                (line) =>
-                    line.trim()
-            )
-            .filter(Boolean);
+    const originalLines = text
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
 
     const lines = [];
 
-    for (
-        const line of originalLines
-    ) {
-
-        const wrappedLines =
-            wrapSingleLine(
-                line,
-                maxCharsPerLine
-            );
-
-        lines.push(
-            ...wrappedLines
+    for (const line of originalLines) {
+        const wrappedLines = wrapSingleLine(
+            line,
+            maxCharsPerLine
         );
+
+        lines.push(...wrappedLines);
     }
 
     return lines;
@@ -197,10 +175,7 @@ const breakLongWord = (
     word,
     maxChars
 ) => {
-
-    if (
-        word.length <= maxChars
-    ) {
+    if (word.length <= maxChars) {
         return [word];
     }
 
@@ -227,69 +202,44 @@ const wrapPageName = (
     text,
     maxCharsPerLine = 28
 ) => {
-
-    const words =
-        text
-            .split(/\s+/)
-            .filter(Boolean);
+    const words = text
+        .split(/\s+/)
+        .filter(Boolean);
 
     const processedWords = [];
 
-    for (
-        const word of words
-    ) {
-
-        const chunks =
-            breakLongWord(
-                word,
-                maxCharsPerLine
-            );
-
-        processedWords.push(
-            ...chunks
+    for (const word of words) {
+        const chunks = breakLongWord(
+            word,
+            maxCharsPerLine
         );
-    }
 
+        processedWords.push(...chunks);
+    }
 
     const lines = [];
 
     let currentLine = "";
 
-
-    for (
-        const word of processedWords
-    ) {
-
-        const testLine =
-            currentLine
-                ? `${currentLine} ${word}`
-                : word;
-
+    for (const word of processedWords) {
+        const testLine = currentLine
+            ? `${currentLine} ${word}`
+            : word;
 
         if (
-            testLine.length >
-                maxCharsPerLine &&
+            testLine.length > maxCharsPerLine &&
             currentLine
         ) {
-
-            lines.push(
-                currentLine
-            );
+            lines.push(currentLine);
 
             currentLine = word;
-
         } else {
-
-            currentLine =
-                testLine;
+            currentLine = testLine;
         }
     }
 
-
     if (currentLine) {
-        lines.push(
-            currentLine
-        );
+        lines.push(currentLine);
     }
 
 
@@ -297,9 +247,7 @@ const wrapPageName = (
     // Maximum 2 visual lines
     // --------------------------------
 
-    if (
-        lines.length <= 2
-    ) {
+    if (lines.length <= 2) {
         return lines;
     }
 
@@ -308,24 +256,19 @@ const wrapPageName = (
     // Keep maximum 2 lines
     // --------------------------------
 
-    const firstLine =
-        lines[0];
+    const firstLine = lines[0];
 
-    const remainingText =
-        lines
-            .slice(1)
-            .join(" ");
-
+    const remainingText = lines
+        .slice(1)
+        .join(" ");
 
     const secondLine =
-        remainingText.length >
-            maxCharsPerLine
+        remainingText.length > maxCharsPerLine
             ? remainingText.slice(
                 0,
                 maxCharsPerLine
             )
             : remainingText;
-
 
     return [
         firstLine,
@@ -342,10 +285,7 @@ const getPageNameFontSize = (
     pageName,
     lines
 ) => {
-
-    const length =
-        pageName.length;
-
+    const length = pageName.length;
 
     if (
         length <= 20 &&
@@ -354,7 +294,6 @@ const getPageNameFontSize = (
         return 30;
     }
 
-
     if (
         length <= 28 &&
         lines.length === 1
@@ -362,20 +301,13 @@ const getPageNameFontSize = (
         return 28;
     }
 
-
-    if (
-        length <= 36
-    ) {
+    if (length <= 36) {
         return 26;
     }
 
-
-    if (
-        length <= 48
-    ) {
+    if (length <= 48) {
         return 24;
     }
-
 
     return 22;
 };
@@ -388,7 +320,6 @@ const getPageNameFontSize = (
 const getTheme = (
     theme = "midnight"
 ) => {
-
     return (
         CARD_THEMES[theme] ||
         CARD_THEMES.midnight
@@ -405,32 +336,26 @@ const createCardSvg = ({
     pageName,
     theme = "midnight",
 }) => {
-
-    const selectedTheme =
-        getTheme(theme);
+    const selectedTheme = getTheme(theme);
 
 
     // ============================================
     // QUOTE
     // ============================================
 
-    const quote =
-        normalizeQuote(text);
+    const quote = normalizeQuote(text);
 
-
-    const lines =
-        wrapQuote(
-            quote,
-            30
-        );
+    const lines = wrapQuote(
+        quote,
+        30
+    );
 
 
     // --------------------------------
     // Limit visual lines
     // --------------------------------
 
-    const visibleLines =
-        lines.slice(0, 4);
+    const visibleLines = lines.slice(0, 4);
 
 
     // ============================================
@@ -439,31 +364,19 @@ const createCardSvg = ({
 
     let fontSize = 58;
 
-
-    if (
-        visibleLines.length === 4
-    ) {
+    if (visibleLines.length === 4) {
         fontSize = 50;
     }
 
-
-    if (
-        visibleLines.length === 3
-    ) {
+    if (visibleLines.length === 3) {
         fontSize = 56;
     }
 
-
-    if (
-        visibleLines.length === 2
-    ) {
+    if (visibleLines.length === 2) {
         fontSize = 62;
     }
 
-
-    if (
-        visibleLines.length === 1
-    ) {
+    if (visibleLines.length === 1) {
         fontSize = 66;
     }
 
@@ -471,11 +384,9 @@ const createCardSvg = ({
     const lineHeight =
         fontSize * 1.35;
 
-
     const totalTextHeight =
         (visibleLines.length - 1) *
-            lineHeight;
-
+        lineHeight;
 
     const startY =
         540 -
@@ -485,10 +396,6 @@ const createCardSvg = ({
     // ============================================
     // QUOTE TEXT
     // ============================================
-    //
-    // Explicitly use the separate Bold family.
-    // No font-weight matching is required.
-    // ============================================
 
     const textElements =
         visibleLines
@@ -497,26 +404,22 @@ const createCardSvg = ({
                     line,
                     index
                 ) => {
-
                     const y =
                         startY +
                         index *
-                            lineHeight;
-
+                        lineHeight;
 
                     return `
                         <text
                             x="540"
                             y="${y}"
                             text-anchor="middle"
-                            font-family="${FONT_BOLD}"
+                            font-family="${FONT}"
                             font-size="${fontSize}px"
-                            font-weight="400"
+                            font-weight="700"
                             fill="#FFFFFF"
                         >
-                            ${escapeXml(
-                                line
-                            )}
+                            ${escapeXml(line)}
                         </text>
                     `;
                 }
@@ -556,13 +459,11 @@ const createCardSvg = ({
             28
         );
 
-
     const pageNameFontSize =
         getPageNameFontSize(
             pageName,
             pageNameLines
         );
-
 
     const pageNameLineHeight =
         pageNameFontSize * 1.25;
@@ -574,10 +475,7 @@ const createCardSvg = ({
 
     let pageNameStartY = 920;
 
-
-    if (
-        pageNameLines.length === 2
-    ) {
+    if (pageNameLines.length === 2) {
         pageNameStartY = 900;
     }
 
@@ -593,28 +491,24 @@ const createCardSvg = ({
                     line,
                     index
                 ) => {
-
                     const y =
                         pageNameStartY +
                         index *
-                            pageNameLineHeight;
-
+                        pageNameLineHeight;
 
                     return `
                         <text
                             x="540"
                             y="${y}"
                             text-anchor="middle"
-                            font-family="${FONT_REGULAR}"
+                            font-family="${FONT}"
                             font-size="${pageNameFontSize}px"
-                            font-weight="400"
+                            font-weight="700"
                             letter-spacing="0.5px"
                             fill="#FFFFFF"
                             opacity="0.85"
                         >
-                            ${escapeXml(
-                                line
-                            )}
+                            ${escapeXml(line)}
                         </text>
                     `;
                 }
@@ -858,12 +752,8 @@ const renderCard = async ({
 
     const svg =
         createCardSvg({
-            text:
-                text.trim(),
-
-            pageName:
-                pageName.trim(),
-
+            text: text.trim(),
+            pageName: pageName.trim(),
             theme,
         });
 
