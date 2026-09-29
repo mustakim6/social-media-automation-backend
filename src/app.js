@@ -12,11 +12,20 @@ import settingsRoutes from "./routes/settingsRoutes.js";
 import imageRoutes from "./routes/imageRoutes.js";
 import cardTestRoutes from "./routes/cardTestRoutes.js";
 import contentGenerationTestRoutes from "./routes/contentGenerationTestRoutes.js";
+import facebookWebhookRoutes from "./routes/facebookWebhookRoutes.js";
 
-// Create an instance of the Express application
+
+// ==================================================
+// Create Express Application
+// ==================================================
+
 const app = express();
 
-// Middlewares
+
+// ==================================================
+// Global Middlewares
+// ==================================================
+
 app.use(
     cors({
         origin: process.env.FRONTEND_URL,
@@ -24,59 +33,165 @@ app.use(
     })
 );
 
+
+// --------------------------------------------------
+// JSON body parser
+// --------------------------------------------------
+
 app.use(express.json());
+
+
+// --------------------------------------------------
+// URL-encoded body parser
+// Required for Meta signed_request
+// --------------------------------------------------
+
+app.use(
+    express.urlencoded({
+        extended: true,
+    })
+);
+
+
+// --------------------------------------------------
+// Cookie parser
+// --------------------------------------------------
+
 app.use(cookieParser());
 
-// Public health check
-app.get("/api/health", (req, res) => {
-    res.status(200).json({
-        status: "OK",
-        message: "Server is running!",
-    });
-});
 
-// Mount routes
-app.use("/api/auth", authRoutes);
+// ==================================================
+// Public Health Check
+// ==================================================
 
-app.use("/api/facebook", facebookRoutes);
+app.get(
+    "/api/health",
+    (req, res) => {
+        return res.status(200).json({
+            status: "OK",
+            message: "Server is running!",
+        });
+    }
+);
 
-// app.use("/api/posts", postRoutes);
 
-app.use("/api/llm", llmRoutes);
+// ==================================================
+// API Routes
+// ==================================================
+
+
+// --------------------------------------------------
+// Authentication
+// --------------------------------------------------
+
+app.use(
+    "/api/auth",
+    authRoutes
+);
+
+
+// --------------------------------------------------
+// Facebook
+// --------------------------------------------------
+
+app.use(
+    "/api/facebook",
+    facebookRoutes
+);
+
+
+// --------------------------------------------------
+// LLM
+// --------------------------------------------------
+
+app.use(
+    "/api/llm",
+    llmRoutes
+);
+
+
+// --------------------------------------------------
+// Automation Status
+// --------------------------------------------------
 
 app.use(
     "/api/automations/status",
     automationStatusRoutes
 );
 
+
+// --------------------------------------------------
+// Automation
+// --------------------------------------------------
+
 app.use(
     "/api/automations",
     automationRoutes
 );
+
+
+// --------------------------------------------------
+// Dashboard
+// --------------------------------------------------
 
 app.use(
     "/api/dashboard",
     dashboardRoutes
 );
 
+
+// --------------------------------------------------
+// Settings
+// --------------------------------------------------
+
 app.use(
     "/api/settings",
     settingsRoutes
 );
+
+
+// --------------------------------------------------
+// LLM Image
+// --------------------------------------------------
 
 app.use(
     "/api/llm/image",
     imageRoutes
 );
 
+
+// --------------------------------------------------
+// Card Test
+// --------------------------------------------------
+
 app.use(
     "/api/llm/test-card",
     cardTestRoutes
 );
 
+
+// --------------------------------------------------
+// Content Generation Test
+// --------------------------------------------------
+
 app.use(
     "/api/llm/test-content",
     contentGenerationTestRoutes
 );
+
+
+// ==================================================
+// Meta / Facebook Webhook Routes
+
+
+app.use(
+    "/api/facebook/webhook",
+    facebookWebhookRoutes
+);
+
+
+// ==================================================
+// Export App
+// ==================================================
 
 export default app;

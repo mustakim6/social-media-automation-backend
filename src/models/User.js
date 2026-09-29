@@ -20,6 +20,14 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
+    metaUserId: {
+    type: String,
+    default: null,
+    unique: true,
+    sparse: true,
+    index: true,
+},
+
     // We store only the hashed password.
     // The user's actual password should never be stored.
     passwordHash: {

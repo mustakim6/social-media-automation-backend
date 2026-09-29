@@ -1,41 +1,89 @@
 import jwt from "jsonwebtoken";
+
 import FacebookPage from "../models/FacebookPage.js";
 import FacebookOAuthSession from "../models/FacebookOAuthSession.js";
+import User from "../models/User.js";
 
 import {
     createFacebookOAuthState,
     createFacebookAuthUrl,
     exchangeCodeForUserAccessToken,
     fetchFacebookPages,
+    fetchFacebookUser,
     publishToFacebookPage,
 } from "../services/facebookService.js";
 
 
-// Check Facebook connection status
-const getFacebookConnectionStatus = (req, res) => {
-    return res.status(200).json({
-        status: "OK",
-        connected: false,
-        message: "Facebook integration is ready",
-    });
+// ======================================================
+// Check Facebook Connection Status
+// ======================================================
+
+const getFacebookConnectionStatus = async (req, res) => {
+    try {
+        const pages = await FacebookPage.find({
+            userId: req.userId,
+            isActive: true,
+        }).select("_id pageId pageName isActive connectedAt");
+
+        return res.status(200).json({
+            status: "OK",
+            connected: pages.length > 0,
+            pages,
+        });
+    } catch (error) {
+        console.error(
+            "Get Facebook connection status error:",
+            error
+        );
+
+        return res.status(500).json({
+            status: "ERR",
+            message:
+                "Failed to get Facebook connection status",
+        });
+    }
 };
 
 
-// Start Facebook OAuth flow
+// ======================================================
+// Start Facebook OAuth Flow
+// ======================================================
+
 const connectFacebook = (req, res) => {
-    const state = createFacebookOAuthState(req.userId);
+    try {
+        const state = createFacebookOAuthState(
+            req.userId
+        );
 
-    const authUrl = createFacebookAuthUrl(state);
+        const authUrl = createFacebookAuthUrl(state);
 
-    return res.redirect(authUrl);
+        return res.redirect(authUrl);
+    } catch (error) {
+        console.error(
+            "Connect Facebook error:",
+            error
+        );
+
+        return res.status(500).json({
+            status: "ERR",
+            message:
+                "Failed to start Facebook authorization",
+        });
+    }
 };
 
 
-// Facebook OAuth callback
+// ======================================================
+// Facebook OAuth Callback
+// ======================================================
+
 const facebookCallback = async (req, res) => {
     const { code, state } = req.query;
 
-    // Check authorization code
+    // -----------------------------------------------
+    // Validate code
+    // -----------------------------------------------
+
     if (!code) {
         return res.status(400).json({
             status: "ERR",
@@ -43,7 +91,10 @@ const facebookCallback = async (req, res) => {
         });
     }
 
-    // Check OAuth state
+    // -----------------------------------------------
+    // Validate state
+    // -----------------------------------------------
+
     if (!state) {
         return res.status(400).json({
             status: "ERR",
@@ -52,81 +103,187 @@ const facebookCallback = async (req, res) => {
     }
 
     try {
+        // -------------------------------------------
         // Verify OAuth state
+        // -------------------------------------------
+
         const decodedState = jwt.verify(
             state,
             process.env.JWT_SECRET
         );
 
-        // Make sure this state belongs to Facebook OAuth
-        if (decodedState.purpose !== "facebook-oauth") {
+        if (
+            decodedState.purpose !==
+            "facebook-oauth"
+        ) {
             return res.status(400).json({
                 status: "ERR",
                 message: "Invalid OAuth state",
             });
         }
 
-        // Exchange authorization code for user access token
-        const tokenData = await exchangeCodeForUserAccessToken(code);
+        if (!decodedState.userId) {
+            return res.status(400).json({
+                status: "ERR",
+                message:
+                    "User ID not found in OAuth state",
+            });
+        }
 
-        console.log("Meta token received successfully");
+        // -------------------------------------------
+        // Exchange authorization code
+        // for Meta user access token
+        // -------------------------------------------
+
+        const tokenData =
+            await exchangeCodeForUserAccessToken(
+                code
+            );
+
+        if (!tokenData?.access_token) {
+            throw new Error(
+                "Meta user access token not received"
+            );
+        }
+
+        console.log(
+            "Meta token received successfully"
+        );
+
         console.log(
             "OAuth belongs to user:",
             decodedState.userId
         );
 
-        // Get Facebook Pages
-        const pagesData = await fetchFacebookPages(
-            tokenData.access_token
+        // -------------------------------------------
+        // Fetch Meta/Facebook User
+        // -------------------------------------------
+
+        const metaUser =
+            await fetchFacebookUser(
+                tokenData.access_token
+            );
+
+        if (!metaUser?.id) {
+            throw new Error(
+                "Meta user ID not found"
+            );
+        }
+
+        console.log(
+            "Meta user received:",
+            {
+                id: metaUser.id,
+                name: metaUser.name,
+            }
         );
 
-        const pages = pagesData.data;
+        // -------------------------------------------
+        // Fetch Facebook Pages
+        // -------------------------------------------
+
+        const pagesData =
+            await fetchFacebookPages(
+                tokenData.access_token
+            );
+
+        const pages = pagesData?.data || [];
 
         console.log(
             "Facebook Pages received:",
-            pages?.length || 0
+            pages.length
         );
 
-        // Check if user has any Facebook Page
-        if (!pages || pages.length === 0) {
+        // -------------------------------------------
+        // If no Facebook Page found
+        // -------------------------------------------
+
+        if (pages.length === 0) {
             return res.status(404).json({
                 status: "ERR",
-                message: "No Facebook Pages found",
+                message:
+                    "No Facebook Pages found",
             });
         }
 
-        // Prepare Pages for temporary storage
-        const availablePages = pages.map((page) => ({
-            pageId: page.id,
-            pageName: page.name,
-            pageAccessToken: page.access_token,
-        }));
+        // -------------------------------------------
+        // Save Meta user ID
+        // -------------------------------------------
 
-        // Create expiry time
-        // OAuth selection session will be valid for 10 minutes
-        const expiresAt = new Date(
-            Date.now() + 10 * 60 * 1000
+        const updatedUser =
+            await User.findByIdAndUpdate(
+                decodedState.userId,
+                {
+                    metaUserId: metaUser.id,
+                },
+                {
+                    new: true,
+                    runValidators: true,
+                }
+            );
+
+        if (!updatedUser) {
+            return res.status(404).json({
+                status: "ERR",
+                message: "SocialFlow user not found",
+            });
+        }
+
+        console.log(
+            "Meta user ID saved:",
+            metaUser.id
         );
 
-        // Save temporary OAuth session
-        const oauthSession = await FacebookOAuthSession.create({
-            userId: decodedState.userId,
-            pages: availablePages,
-            expiresAt,
-        });
+        // -------------------------------------------
+        // Prepare available Facebook Pages
+        // -------------------------------------------
 
-        console.log("Facebook OAuth session created:", {
-            sessionId: oauthSession._id,
-            userId: oauthSession.userId,
-            pageCount: oauthSession.pages.length,
-            expiresAt: oauthSession.expiresAt,
-        });
+        const availablePages = pages.map(
+            (page) => ({
+                pageId: page.id,
+                pageName: page.name,
+                pageAccessToken:
+                    page.access_token,
+            })
+        );
+
+        // -------------------------------------------
+        // Create temporary OAuth session
+        // -------------------------------------------
+
+        const expiresAt = new Date(
+            Date.now() +
+                10 * 60 * 1000
+        );
+
+        const oauthSession =
+            await FacebookOAuthSession.create({
+                userId: decodedState.userId,
+                pages: availablePages,
+                expiresAt,
+            });
+
+        console.log(
+            "Facebook OAuth session created:",
+            {
+                sessionId:
+                    oauthSession._id,
+                userId:
+                    oauthSession.userId,
+                pageCount:
+                    oauthSession.pages.length,
+                expiresAt:
+                    oauthSession.expiresAt,
+            }
+        );
+
+        // -------------------------------------------
+        // Redirect frontend
+        // -------------------------------------------
 
         return res.redirect(
-    `${process.env.FRONTEND_URL}/pages?facebook=connected&sessionId=${oauthSession._id}`
-
-);
-
+            `${process.env.FRONTEND_URL}/pages?facebook=connected&sessionId=${oauthSession._id}`
+        );
     } catch (error) {
         console.error(
             "Facebook callback error:",
@@ -135,12 +292,18 @@ const facebookCallback = async (req, res) => {
 
         return res.status(500).json({
             status: "ERR",
-            message: "Facebook authorization failed",
+            message:
+                error.message ||
+                "Facebook authorization failed",
         });
     }
 };
 
-// Get connected Facebook Pages of current user
+
+// ======================================================
+// Get Connected Facebook Pages
+// ======================================================
+
 const getFacebookPages = async (req, res) => {
     try {
         const pages = await FacebookPage.find({
@@ -150,97 +313,140 @@ const getFacebookPages = async (req, res) => {
             "_id pageId pageName isActive connectedAt createdAt updatedAt"
         );
 
-
         return res.status(200).json({
             status: "OK",
             pages,
         });
-
     } catch (error) {
-        console.error("Get Facebook Pages error:", error);
+        console.error(
+            "Get Facebook Pages error:",
+            error
+        );
 
         return res.status(500).json({
             status: "ERR",
-            message: "Failed to get Facebook Pages",
+            message:
+                "Failed to get Facebook Pages",
         });
     }
 };
 
-const disconnectFacebookPage = async (req, res) => {
+
+// ======================================================
+// Disconnect Facebook Page
+// ======================================================
+
+const disconnectFacebookPage = async (
+    req,
+    res
+) => {
     try {
         const { pageId } = req.params;
 
-        const page = await FacebookPage.findOneAndUpdate(
-            {
-                userId: req.userId,
-                pageId: pageId,
-                isActive: true,
-            },
-            {
-                isActive: false,
-            },
-            {
-                returnDocument: "after",
-            }
-        );
+        if (!pageId) {
+            return res.status(400).json({
+                status: "ERR",
+                message:
+                    "Facebook Page ID is required",
+            });
+        }
+
+        const page =
+            await FacebookPage.findOneAndUpdate(
+                {
+                    userId: req.userId,
+                    pageId,
+                    isActive: true,
+                },
+                {
+                    $set: {
+                        isActive: false,
+                    },
+                },
+                {
+                    new: true,
+                }
+            );
 
         if (!page) {
             return res.status(404).json({
                 status: "ERR",
-                message: "Facebook Page not found",
+                message:
+                    "Facebook Page not found",
             });
         }
 
         return res.status(200).json({
             status: "OK",
-            message: "Facebook Page disconnected successfully",
+            message:
+                "Facebook Page disconnected successfully",
         });
-
     } catch (error) {
-        console.error("Disconnect Facebook Page error:", error);
+        console.error(
+            "Disconnect Facebook Page error:",
+            error
+        );
 
         return res.status(500).json({
             status: "ERR",
-            message: "Failed to disconnect Facebook Page",
+            message:
+                "Failed to disconnect Facebook Page",
         });
     }
 };
 
-const getAvailableFacebookPages = async (req, res) => {
+
+// ======================================================
+// Get Available Facebook Pages
+// From Temporary OAuth Session
+// ======================================================
+
+const getAvailableFacebookPages = async (
+    req,
+    res
+) => {
     try {
         const { sessionId } = req.query;
 
         if (!sessionId) {
             return res.status(400).json({
                 status: "ERR",
-                message: "sessionId is required",
+                message:
+                    "sessionId is required",
             });
         }
 
-        const oauthSession = await FacebookOAuthSession.findOne({
-            _id: sessionId,
-            userId: req.userId,
-            expiresAt: { $gt: new Date() },
-        });
+        const oauthSession =
+            await FacebookOAuthSession.findOne({
+                _id: sessionId,
+                userId: req.userId,
+                expiresAt: {
+                    $gt: new Date(),
+                },
+            });
 
         if (!oauthSession) {
             return res.status(404).json({
                 status: "ERR",
-                message: "Facebook session expired or not found",
+                message:
+                    "Facebook session expired or not found",
             });
         }
 
-        const pages = oauthSession.pages.map((page) => ({
-            pageId: page.pageId,
-            pageName: page.pageName,
-        }));
+        const pages =
+            oauthSession.pages.map(
+                (page) => ({
+                    pageId: page.pageId,
+                    pageName: page.pageName,
+                })
+            );
 
         return res.status(200).json({
             status: "OK",
-            sessionId: oauthSession._id,
+            sessionId:
+                oauthSession._id,
             pages,
         });
-
     } catch (error) {
         console.error(
             "Get available Facebook Pages error:",
@@ -249,114 +455,187 @@ const getAvailableFacebookPages = async (req, res) => {
 
         return res.status(500).json({
             status: "ERR",
-            message: "Failed to get available Facebook Pages",
+            message:
+                "Failed to get available Facebook Pages",
         });
     }
 };
 
-const connectSelectedFacebookPage = async (req, res) => {
-    try {
-        const { sessionId, pageId } = req.body;
 
-        // Validate request
-        if (!sessionId || !pageId) {
-            return res.status(400).json({
-                status: "ERR",
-                message: "sessionId and pageId are required",
-            });
-        }
+// ======================================================
+// Connect Selected Facebook Page
+// ======================================================
 
-        // Find current user's OAuth session
-        const oauthSession = await FacebookOAuthSession.findOne({
-            _id: sessionId,
-            userId: req.userId,
-            expiresAt: { $gt: new Date() },
-        });
+const connectSelectedFacebookPage =
+    async (req, res) => {
+        try {
+            const {
+                sessionId,
+                pageId,
+            } = req.body;
 
-        if (!oauthSession) {
-            return res.status(404).json({
-                status: "ERR",
-                message: "Facebook session expired or not found",
-            });
-        }
+            // -------------------------------------------
+            // Validate input
+            // -------------------------------------------
 
-        // Find selected Page inside OAuth session
-        const selectedPage = oauthSession.pages.find(
-            (page) => page.pageId === pageId
-        );
-
-        if (!selectedPage) {
-            return res.status(404).json({
-                status: "ERR",
-                message: "Selected Facebook Page not found",
-            });
-        }
-
-        // Save or update selected Page
-        const savedPage = await FacebookPage.findOneAndUpdate(
-            {
-                userId: req.userId,
-                pageId: selectedPage.pageId,
-            },
-            {
-                userId: req.userId,
-                pageId: selectedPage.pageId,
-                pageName: selectedPage.pageName,
-                pageAccessToken: selectedPage.pageAccessToken,
-                isActive: true,
-                connectedAt: new Date(),
-            },
-            {
-                returnDocument: "after",
-                upsert: true,
-                runValidators: true,
+            if (!sessionId || !pageId) {
+                return res.status(400).json({
+                    status: "ERR",
+                    message:
+                        "sessionId and pageId are required",
+                });
             }
-        );
 
-        // Delete temporary OAuth session
-        await FacebookOAuthSession.deleteOne({
-            _id: oauthSession._id,
-        });
+            // -------------------------------------------
+            // Find valid OAuth session
+            // -------------------------------------------
 
-        console.log("Facebook Page connected:", {
-            id: savedPage._id,
-            pageId: savedPage.pageId,
-            pageName: savedPage.pageName,
-        });
+            const oauthSession =
+                await FacebookOAuthSession.findOne({
+                    _id: sessionId,
+                    userId: req.userId,
+                    expiresAt: {
+                        $gt: new Date(),
+                    },
+                });
 
-        return res.status(200).json({
-            status: "OK",
-            message: "Facebook Page connected successfully",
-            page: {
-                id: savedPage._id,
-                pageId: savedPage.pageId,
-                pageName: savedPage.pageName,
-                isActive: savedPage.isActive,
-                connectedAt: savedPage.connectedAt,
-            },
-        });
+            if (!oauthSession) {
+                return res.status(404).json({
+                    status: "ERR",
+                    message:
+                        "Facebook session expired or not found",
+                });
+            }
 
-    } catch (error) {
-        console.error(
-            "Connect selected Facebook Page error:",
-            error
-        );
+            // -------------------------------------------
+            // Find selected page
+            // -------------------------------------------
 
-        return res.status(500).json({
-            status: "ERR",
-            message: "Failed to connect Facebook Page",
-        });
-    }
-};
+            const selectedPage =
+                oauthSession.pages.find(
+                    (page) =>
+                        page.pageId ===
+                        pageId
+                );
 
-const publishFacebookPost = async (req, res) => {
+            if (!selectedPage) {
+                return res.status(404).json({
+                    status: "ERR",
+                    message:
+                        "Selected Facebook Page not found",
+                });
+            }
+
+            // -------------------------------------------
+            // Save / Reactivate Facebook Page
+            // -------------------------------------------
+
+            const savedPage =
+                await FacebookPage.findOneAndUpdate(
+                    {
+                        userId: req.userId,
+                        pageId:
+                            selectedPage.pageId,
+                    },
+                    {
+                        $set: {
+                            userId:
+                                req.userId,
+                            pageId:
+                                selectedPage.pageId,
+                            pageName:
+                                selectedPage.pageName,
+                            pageAccessToken:
+                                selectedPage.pageAccessToken,
+                            isActive: true,
+                            connectedAt:
+                                new Date(),
+                        },
+                    },
+                    {
+                        new: true,
+                        upsert: true,
+                        runValidators: true,
+                    }
+                );
+
+            // -------------------------------------------
+            // Delete temporary OAuth session
+            // -------------------------------------------
+
+            await FacebookOAuthSession.deleteOne(
+                {
+                    _id:
+                        oauthSession._id,
+                }
+            );
+
+            console.log(
+                "Facebook Page connected:",
+                {
+                    id:
+                        savedPage._id,
+                    pageId:
+                        savedPage.pageId,
+                    pageName:
+                        savedPage.pageName,
+                }
+            );
+
+            return res.status(200).json({
+                status: "OK",
+                message:
+                    "Facebook Page connected successfully",
+                page: {
+                    id:
+                        savedPage._id,
+                    pageId:
+                        savedPage.pageId,
+                    pageName:
+                        savedPage.pageName,
+                    isActive:
+                        savedPage.isActive,
+                    connectedAt:
+                        savedPage.connectedAt,
+                },
+            });
+        } catch (error) {
+            console.error(
+                "Connect selected Facebook Page error:",
+                error
+            );
+
+            return res.status(500).json({
+                status: "ERR",
+                message:
+                    "Failed to connect Facebook Page",
+            });
+        }
+    };
+
+
+// ======================================================
+// Publish Facebook Post
+// ======================================================
+
+const publishFacebookPost = async (
+    req,
+    res
+) => {
     try {
         const {
             facebookPageId,
             message,
         } = req.body;
 
-        if (!facebookPageId || !message) {
+        // -------------------------------------------
+        // Validate input
+        // -------------------------------------------
+
+        if (
+            !facebookPageId ||
+            !message
+        ) {
             return res.status(400).json({
                 status: "ERR",
                 message:
@@ -364,22 +643,33 @@ const publishFacebookPost = async (req, res) => {
             });
         }
 
-        const page = await FacebookPage.findOne({
-            _id: facebookPageId,
-            userId: req.userId,
-            isActive: true,
-        });
+        // -------------------------------------------
+        // Find user's active Facebook Page
+        // -------------------------------------------
+
+        const page =
+            await FacebookPage.findOne({
+                _id: facebookPageId,
+                userId: req.userId,
+                isActive: true,
+            });
 
         if (!page) {
             return res.status(404).json({
                 status: "ERR",
-                message: "Facebook Page not found",
+                message:
+                    "Facebook Page not found",
             });
         }
 
+        // -------------------------------------------
+        // Publish to Facebook
+        // -------------------------------------------
+
         const result =
             await publishToFacebookPage({
-                pageId: page.pageId,
+                pageId:
+                    page.pageId,
                 pageAccessToken:
                     page.pageAccessToken,
                 message,
@@ -391,7 +681,6 @@ const publishFacebookPost = async (req, res) => {
                 "Facebook post published successfully",
             postId: result.id,
         });
-
     } catch (error) {
         console.error(
             "Publish Facebook post error:",
@@ -406,6 +695,11 @@ const publishFacebookPost = async (req, res) => {
         });
     }
 };
+
+
+// ======================================================
+// Exports
+// ======================================================
 
 export {
     getFacebookConnectionStatus,

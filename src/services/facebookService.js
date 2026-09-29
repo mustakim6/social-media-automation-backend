@@ -287,6 +287,43 @@ const publishPhotoToFacebookPage = async ({
 
 
 // ----------------------------------------
+// Fetch Meta User
+// ----------------------------------------
+
+const fetchFacebookUser = async (
+    userAccessToken
+) => {
+    const params = new URLSearchParams({
+        fields: "id,name",
+
+        access_token:
+            userAccessToken,
+    });
+
+    const response = await fetch(
+        `https://graph.facebook.com/${META_GRAPH_VERSION}/me?${params.toString()}`
+    );
+
+    const data =
+        await response.json();
+
+    if (!response.ok) {
+        console.error(
+            "Meta user fetch failed:",
+            data
+        );
+
+        throw new Error(
+            data?.error?.message ||
+            "Failed to fetch Meta user"
+        );
+    }
+
+    return data;
+};
+
+
+// ----------------------------------------
 // Exports
 // ----------------------------------------
 
@@ -295,6 +332,7 @@ export {
     createFacebookAuthUrl,
     exchangeCodeForUserAccessToken,
     fetchFacebookPages,
+    fetchFacebookUser,
     publishToFacebookPage,
     publishPhotoToFacebookPage,
 };
